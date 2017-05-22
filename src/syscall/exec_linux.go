@@ -28,6 +28,7 @@ type SysProcAttr struct {
 	Setctty      bool           // Set controlling terminal to fd Ctty (only meaningful if Setsid is set)
 	Noctty       bool           // Detach fd 0 from controlling terminal
 	Ctty         int            // Controlling TTY fd
+	StealCtty    bool           // Steal the controlling terminal from a different session group (Linux only)
 	Foreground   bool           // Place child's process group in foreground. (Implies Setpgid. Uses Ctty as fd of controlling TTY)
 	Pgid         int            // Child's process group ID if Setpgid.
 	Pdeathsig    Signal         // Signal that the process will get when its parent dies (Linux only)
@@ -342,7 +343,12 @@ func forkAndExecInChild(argv0 *byte, argv, envv []*byte, chroot, dir *byte, attr
 
 	// Set the controlling TTY to Ctty
 	if sys.Setctty {
-		_, _, err1 = RawSyscall(SYS_IOCTL, uintptr(sys.Ctty), uintptr(TIOCSCTTY), 0)
+		tiocscttyArg := 0
+		if sys.StealCtty {
+			tiocscttyArg = 1
+		}
+
+		_, _, err1 = RawSyscall(SYS_IOCTL, uintptr(sys.Ctty), uintptr(TIOCSCTTY), uintptr(tiocscttyArg))
 		if err1 != 0 {
 			goto childerror
 		}
